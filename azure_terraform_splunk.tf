@@ -1,36 +1,36 @@
 # Create a resource group for the Event Hub
-resource “azurerm_resource_group” “splunk_logs_rg” {
-  name     = “splunkResourceGroup”
-  location = “East US”
+resource "azurerm_resource_group" "splunk_logs_rg" {
+  name     = "splunkResourceGroup"
+  location = "East US"
 }
 
 # Create an Event Hub Namespace
-resource “azurerm_eventhub_namespace” “splunk_log_hub_namespace” {
-  name                = “splunkLogHubNamespace”
+resource "azurerm_eventhub_namespace" "splunk_log_hub_namespace" {
+  name                = "splunkLogHubNamespace"
   location            = azurerm_resource_group.splunk_logs_rg.location
   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
-  sku                 = “Standard”
+  sku                 = "Standard"
   capacity            = 1
 }
 
 # Create an Event Hub within the namespace
-resource “azurerm_eventhub” “splunk_log_event_hub” {
-  name                = “splunkLogEventHub”
+resource "azurerm_eventhub" "splunk_log_event_hub" {
+  name                = "splunkLogEventHub"
   namespace_name      = azurerm_eventhub_namespace.splunk_log_hub_namespace.name
   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
   partition_count     = 2
   message_retention   = 1
 }
 
-data “azurerm_eventhub_namespace_authorization_rule” “SharedAccessKey” {
-  name                = “RootManageSharedAccessKey”
+data "azurerm_eventhub_namespace_authorization_rule" "SharedAccessKey" {
+  name                = "RootManageSharedAccessKey"
   namespace_name      = azurerm_eventhub_namespace.splunk_log_hub_namespace.name
   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
 }
 
 # Create an Event Hub Authorization Rule
-resource “azurerm_eventhub_authorization_rule” “splunk_log_hub_auth_rule” {
-  name                = “RootManageSharedAccessKey”
+resource "azurerm_eventhub_authorization_rule" "splunk_log_hub_auth_rule" {
+  name                = "RootManageSharedAccessKey"
   namespace_name      = azurerm_eventhub_namespace.splunk_log_hub_namespace.name
   eventhub_name       = azurerm_eventhub.splunk_log_event_hub.name
   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
@@ -43,35 +43,35 @@ resource “azurerm_eventhub_authorization_rule” “splunk_log_hub_auth_rule�
 }
 
 
-data “azurerm_subscription” “current” {}
+data "azurerm_subscription" "current" {}
 
 # Apply BuiltIn initiative/policy set - https://www.azadvertizer.net/azpolicyinitiativesadvertizer/1020d527-2764-4230-92cc-7035e4fcf8a7.html
 #
 # TODO - use SystemAssigned identity or create and manage it
 #
-data “azurerm_policy_set_definition” “auditLoggingEventHub” {
-  display_name = “Enable audit category group resource logging for supported resources to Event Hub”
+data "azurerm_policy_set_definition" "auditLoggingEventHub" {
+  display_name = "Enable audit category group resource logging for supported resources to Event Hub"
 }
 
-resource “azurerm_subscription_policy_assignment” “subscriptionPolicyAssignment” {
-  name                 = “subscriptionPolicyAssignment”
+resource "azurerm_subscription_policy_assignment" "subscriptionPolicyAssignment" {
+  name                 = "subscriptionPolicyAssignment"
   policy_definition_id = data.azurerm_policy_set_definition.auditLoggingEventHub.id
   subscription_id      = data.azurerm_subscription.current.id
 
   parameters = jsonencode({
-    “resourceLocation” = {
-      “value” = azurerm_resource_group.splunk_logs_rg.location
+    "resourceLocation" = {
+      "value" = azurerm_resource_group.splunk_logs_rg.location
     },
-    “eventHubAuthorizationRuleId” = {
-      “value” = data.azurerm_eventhub_namespace_authorization_rule.SharedAccessKey.id
+    "eventHubAuthorizationRuleId" = {
+      "value" = data.azurerm_eventhub_namespace_authorization_rule.SharedAccessKey.id
     },
-    “eventHubName” = {
-      “value” = azurerm_eventhub.splunk_log_event_hub.name
+    "eventHubName" = {
+      "value" = azurerm_eventhub.splunk_log_event_hub.name
     }
   })
   location = azurerm_resource_group.splunk_logs_rg.location
   identity {
-    type = “SystemAssigned”
+    type = "SystemAssigned"
   }
 
 }
@@ -81,282 +81,282 @@ resource “azurerm_subscription_policy_assignment” “subscriptionPolicyAssig
 # TODO - use SystemAssigned identity or create and manage it
 # TODO - deployment section has location hardcoded to eastus
 #
-resource “azurerm_policy_definition” “activityLogsEventHub” {
-  name         = “activityLogsEventHub”
-  policy_type  = “Custom”
-  mode         = “All”
-  display_name = “Configure Azure Activity logs to stream to specified Event Hub v2"
+resource "azurerm_policy_definition" "activityLogsEventHub" {
+  name         = "activityLogsEventHub"
+  policy_type  = "Custom"
+  mode         = "All"
+  display_name = "Configure Azure Activity logs to stream to specified Event Hub v2"
 
   metadata = <<METADATA
     {
-      “version”: “1.0.0",
-      “category”: “App Service”
+      "version": "1.0.0",
+      "category": "App Service"
     }
     METADATA
 
   policy_rule = <<POLICY_RULE
     {
 
-        “if”: {
-          “field”: “type”,
-          “equals”: “Microsoft.Resources/subscriptions”
+        "if": {
+          "field": "type",
+          "equals": "Microsoft.Resources/subscriptions"
         },
-        “then”: {
-          “effect”: “[parameters(‘effect’)]“,
-          “details”: {
-            “type”: “Microsoft.Insights/diagnosticSettings”,
-            “deploymentScope”: “subscription”,
-            “existenceScope”: “subscription”,
-            “name”: “[parameters(‘profileName’)]“,
-            “existenceCondition”: {
-              “allOf”: [
+        "then": {
+          "effect": "[parameters(‘effect’)]",
+          "details": {
+            "type": "Microsoft.Insights/diagnosticSettings",
+            "deploymentScope": "subscription",
+            "existenceScope": "subscription",
+            "name": "[parameters(‘profileName’)]",
+            "existenceCondition": {
+              "allOf": [
                 {
-                  “field”: “Microsoft.Insights/diagnosticSettings/eventHubAuthorizationRuleId”,
-                  “equals”: “[parameters(‘eventHubAuthorizationRuleId’)]”
+                  "field": "Microsoft.Insights/diagnosticSettings/eventHubAuthorizationRuleId",
+                  "equals": "[parameters(‘eventHubAuthorizationRuleId’)]"
                 },
                 {
-                  “field”: “Microsoft.Insights/diagnosticSettings/eventHubName”,
-                  “equals”: “[parameters(‘eventHubName’)]”
+                  "field": "Microsoft.Insights/diagnosticSettings/eventHubName",
+                  "equals": "[parameters(‘eventHubName’)]"
                 },
                 {
-                  “count”: {
-                    “field”: “Microsoft.Insights/diagnosticSettings/logs[*]“,
-                    “where”: {
-                      “anyOf”: [
+                  "count": {
+                    "field": "Microsoft.Insights/diagnosticSettings/logs[*]",
+                    "where": {
+                      "anyOf": [
                         {
-                          “allOf”: [
+                          "allOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Administrative”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Administrative"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘administrativeLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘administrativeLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Alert”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Alert"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘alertLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘alertLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Autoscale”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Autoscale"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘autoscaleLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘autoscaleLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Policy”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Policy"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘policyLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘policyLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Recommendation”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Recommendation"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘recommendationLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘recommendationLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “ResourceHealth”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "ResourceHealth"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘resourceHealthLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘resourceHealthLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “Security”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "Security"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘securityLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘securityLogsEnabled’)]"
                             }
                           ]
                         },
                         {
-                          “AllOf”: [
+                          "AllOf": [
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].category”,
-                              “like”: “ServiceHealth”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].category",
+                              "like": "ServiceHealth"
                             },
                             {
-                              “field”: “Microsoft.Insights/diagnosticSettings/logs[*].enabled”,
-                              “notEquals”: “[parameters(‘serviceHealthLogsEnabled’)]”
+                              "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
+                              "notEquals": "[parameters(‘serviceHealthLogsEnabled’)]"
                             }
                           ]
                         }
                       ]
                     }
                   },
-                  “equals”: 0
+                  "equals": 0
                 }
               ]
             },
-            “deployment”: {
-              “location”: “eastus”,
-              “properties”: {
-                “mode”: “incremental”,
-                “template”: {
-                  “$schema”: “https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#”,
-                  “contentVersion”: “1.0.0.0",
-                  “parameters”: {
-                    “profileName”: {
-                      “type”: “string”
+            "deployment": {
+              "location": "eastus",
+              "properties": {
+                "mode": "incremental",
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "parameters": {
+                    "profileName": {
+                      "type": "string"
                     },
-                    “eventHubAuthorizationRuleId”: {
-                      “type”: “string”
+                    "eventHubAuthorizationRuleId": {
+                      "type": "string"
                     },
-                    “eventHubName”: {
-                      “type”: “string”
+                    "eventHubName": {
+                      "type": "string"
                     },
-                    “administrativeLogsEnabled”: {
-                      “type”: “string”
+                    "administrativeLogsEnabled": {
+                      "type": "string"
                     },
-                    “alertLogsEnabled”: {
-                      “type”: “string”
+                    "alertLogsEnabled": {
+                      "type": "string"
                     },
-                    “autoscaleLogsEnabled”: {
-                      “type”: “string”
+                    "autoscaleLogsEnabled": {
+                      "type": "string"
                     },
-                    “policyLogsEnabled”: {
-                      “type”: “string”
+                    "policyLogsEnabled": {
+                      "type": "string"
                     },
-                    “recommendationLogsEnabled”: {
-                      “type”: “string”
+                    "recommendationLogsEnabled": {
+                      "type": "string"
                     },
-                    “resourceHealthLogsEnabled”: {
-                      “type”: “string”
+                    "resourceHealthLogsEnabled": {
+                      "type": "string"
                     },
-                    “securityLogsEnabled”: {
-                      “type”: “string”
+                    "securityLogsEnabled": {
+                      "type": "string"
                     },
-                    “serviceHealthLogsEnabled”: {
-                      “type”: “string”
+                    "serviceHealthLogsEnabled": {
+                      "type": "string"
                     }
                   },
-                  “variables”: {},
-                  “resources”: [
+                  "variables": {},
+                  "resources": [
                     {
-                      “name”: “[parameters(‘profileName’)]“,
-                      “type”: “Microsoft.Insights/diagnosticSettings”,
-                      “apiVersion”: “2017-05-01-preview”,
-                      “location”: “Global”,
-                      “properties”: {
-                        “eventHubAuthorizationRuleId”: “[parameters(‘eventHubAuthorizationRuleId’)]“,
-                        “eventHubName”: “[parameters(‘eventHubName’)]“,
-                        “logs”: [
+                      "name": "[parameters(‘profileName’)]",
+                      "type": "Microsoft.Insights/diagnosticSettings",
+                      "apiVersion": "2017-05-01-preview",
+                      "location": "Global",
+                      "properties": {
+                        "eventHubAuthorizationRuleId": "[parameters(‘eventHubAuthorizationRuleId’)]",
+                        "eventHubName": "[parameters(‘eventHubName’)]",
+                        "logs": [
                           {
-                            “category”: “Administrative”,
-                            “enabled”: “[parameters(‘administrativeLogsEnabled’)]”
+                            "category": "Administrative",
+                            "enabled": "[parameters(‘administrativeLogsEnabled’)]"
                           },
                           {
-                            “category”: “Alert”,
-                            “enabled”: “[parameters(‘alertLogsEnabled’)]”
+                            "category": "Alert",
+                            "enabled": "[parameters(‘alertLogsEnabled’)]"
                           },
                           {
-                            “category”: “Autoscale”,
-                            “enabled”: “[parameters(‘autoscaleLogsEnabled’)]”
+                            "category": "Autoscale",
+                            "enabled": "[parameters(‘autoscaleLogsEnabled’)]"
                           },
                           {
-                            “category”: “Policy”,
-                            “enabled”: “[parameters(‘policyLogsEnabled’)]”
+                            "category": "Policy",
+                            "enabled": "[parameters(‘policyLogsEnabled’)]"
                           },
                           {
-                            “category”: “Recommendation”,
-                            “enabled”: “[parameters(‘recommendationLogsEnabled’)]”
+                            "category": "Recommendation",
+                            "enabled": "[parameters(‘recommendationLogsEnabled’)]"
                           },
                           {
-                            “category”: “ResourceHealth”,
-                            “enabled”: “[parameters(‘resourceHealthLogsEnabled’)]”
+                            "category": "ResourceHealth",
+                            "enabled": "[parameters(‘resourceHealthLogsEnabled’)]"
                           },
                           {
-                            “category”: “Security”,
-                            “enabled”: “[parameters(‘securityLogsEnabled’)]”
+                            "category": "Security",
+                            "enabled": "[parameters(‘securityLogsEnabled’)]"
                           },
                           {
-                            “category”: “ServiceHealth”,
-                            “enabled”: “[parameters(‘serviceHealthLogsEnabled’)]”
+                            "category": "ServiceHealth",
+                            "enabled": "[parameters(‘serviceHealthLogsEnabled’)]"
                           }
                         ]
                       }
                     }
                   ],
-                  “outputs”: {}
+                  "outputs": {}
                 },
-                “parameters”: {
-                  “profileName”: {
-                    “value”: “[parameters(‘profileName’)]”
+                "parameters": {
+                  "profileName": {
+                    "value": "[parameters(‘profileName’)]"
                   },
-                  “eventHubName”: {
-                    “value”: “[parameters(‘eventHubName’)]”
+                  "eventHubName": {
+                    "value": "[parameters(‘eventHubName’)]"
                   },
-                  “eventHubAuthorizationRuleId”: {
-                    “value”: “[parameters(‘eventHubAuthorizationRuleId’)]”
+                  "eventHubAuthorizationRuleId": {
+                    "value": "[parameters(‘eventHubAuthorizationRuleId’)]"
                   },
-                  “administrativeLogsEnabled”: {
-                    “value”: “[parameters(‘administrativeLogsEnabled’)]”
+                  "administrativeLogsEnabled": {
+                    "value": "[parameters(‘administrativeLogsEnabled’)]"
                   },
-                  “alertLogsEnabled”: {
-                    “value”: “[parameters(‘alertLogsEnabled’)]”
+                  "alertLogsEnabled": {
+                    "value": "[parameters(‘alertLogsEnabled’)]"
                   },
-                  “autoscaleLogsEnabled”: {
-                    “value”: “[parameters(‘autoscaleLogsEnabled’)]”
+                  "autoscaleLogsEnabled": {
+                    "value": "[parameters(‘autoscaleLogsEnabled’)]"
                   },
-                  “policyLogsEnabled”: {
-                    “value”: “[parameters(‘policyLogsEnabled’)]”
+                  "policyLogsEnabled": {
+                    "value": "[parameters(‘policyLogsEnabled’)]"
                   },
-                  “recommendationLogsEnabled”: {
-                    “value”: “[parameters(‘recommendationLogsEnabled’)]”
+                  "recommendationLogsEnabled": {
+                    "value": "[parameters(‘recommendationLogsEnabled’)]"
                   },
-                  “resourceHealthLogsEnabled”: {
-                    “value”: “[parameters(‘resourceHealthLogsEnabled’)]”
+                  "resourceHealthLogsEnabled": {
+                    "value": "[parameters(‘resourceHealthLogsEnabled’)]"
                   },
-                  “securityLogsEnabled”: {
-                    “value”: “[parameters(‘securityLogsEnabled’)]”
+                  "securityLogsEnabled": {
+                    "value": "[parameters(‘securityLogsEnabled’)]"
                   },
-                  “serviceHealthLogsEnabled”: {
-                    “value”: “[parameters(‘serviceHealthLogsEnabled’)]”
+                  "serviceHealthLogsEnabled": {
+                    "value": "[parameters(‘serviceHealthLogsEnabled’)]"
                   }
                 }
               }
             },
-            “roleDefinitionIds”: [
-              “/providers/Microsoft.Authorization/roleDefinitions/f526a384-b230-433a-b45c-95f59c4a2dec”,
-              “/providers/Microsoft.Authorization/roleDefinitions/92aaf0da-9dab-42b6-94a3-d43ce8d16293”
+            "roleDefinitionIds": [
+              "/providers/Microsoft.Authorization/roleDefinitions/f526a384-b230-433a-b45c-95f59c4a2dec",
+              "/providers/Microsoft.Authorization/roleDefinitions/92aaf0da-9dab-42b6-94a3-d43ce8d16293"
             ]
           }
         }
@@ -366,189 +366,189 @@ resource “azurerm_policy_definition” “activityLogsEventHub” {
 
   parameters = <<PARAMETERS
     {
-      “profileName”: {
-            “type”: “String”,
-            “metadata”: {
-              “displayName”: “Profile name”,
-              “description”: “The diagnostic settings profile name”
+      "profileName": {
+            "type": "String",
+            "metadata": {
+              "displayName": "Profile name",
+              "description": "The diagnostic settings profile name"
             },
-            “defaultValue”: “exportToEventHub”
+            "defaultValue": "exportToEventHub"
           },
-      “eventHubAuthorizationRuleId”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Event Hub Authorization Rule Id”,
-          “description”: “Event Hub Authorization Rule Id - the authorization rule needs to be at Event Hub namespace level. e.g. /subscriptions/{subscription Id}/resourceGroups/{resource group}/providers/Microsoft.EventHub/namespaces/{Event Hub namespace}/authorizationrules/{authorization rule}“,
-          “strongType”: “Microsoft.EventHub/Namespaces/AuthorizationRules”,
-          “assignPermissions”: true
+      "eventHubAuthorizationRuleId": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Event Hub Authorization Rule Id",
+          "description": "Event Hub Authorization Rule Id - the authorization rule needs to be at Event Hub namespace level. e.g. /subscriptions/{subscription Id}/resourceGroups/{resource group}/providers/Microsoft.EventHub/namespaces/{Event Hub namespace}/authorizationrules/{authorization rule}",
+          "strongType": "Microsoft.EventHub/Namespaces/AuthorizationRules",
+          "assignPermissions": true
         }
       },
-      “eventHubName”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Event Hub Name”,
-          “description”: “Event Hub Name.”
+      "eventHubName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Event Hub Name",
+          "description": "Event Hub Name."
         }
       },
-      “administrativeLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Administrative logs”,
-          “description”: “Whether to enable Administrative logs stream to the Event Hub - true or false”
+      "administrativeLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Administrative logs",
+          "description": "Whether to enable Administrative logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “alertLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Alert logs”,
-          “description”: “Whether to enable Alert logs stream to the Event Hub - true or false”
+      "alertLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Alert logs",
+          "description": "Whether to enable Alert logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “autoscaleLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Autoscale logs”,
-          “description”: “Whether to enable Autoscale logs stream to the Event Hub - true or false”
+      "autoscaleLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Autoscale logs",
+          "description": "Whether to enable Autoscale logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “policyLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Policy logs”,
-          “description”: “Whether to enable Policy logs stream to the Event Hub - true or false”
+      "policyLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Policy logs",
+          "description": "Whether to enable Policy logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “recommendationLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Recommendation logs”,
-          “description”: “Whether to enable Recommendation logs stream to the Event Hub - true or false”
+      "recommendationLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Recommendation logs",
+          "description": "Whether to enable Recommendation logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “resourceHealthLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable ResourceHealth logs”,
-          “description”: “Whether to enable ResourceHealth logs stream to the Event Hub - true or false”
+      "resourceHealthLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable ResourceHealth logs",
+          "description": "Whether to enable ResourceHealth logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “securityLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable Security logs”,
-          “description”: “Whether to enable Security logs stream to the Event Hub - true or false”
+      "securityLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable Security logs",
+          "description": "Whether to enable Security logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “serviceHealthLogsEnabled”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Enable ServiceHealth logs”,
-          “description”: “Whether to enable ServiceHealth logs stream to the Event Hub - true or false”
+      "serviceHealthLogsEnabled": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Enable ServiceHealth logs",
+          "description": "Whether to enable ServiceHealth logs stream to the Event Hub - true or false"
         },
-        “allowedValues”: [
-          “true”,
-          “false”
+        "allowedValues": [
+          "true",
+          "false"
         ],
-        “defaultValue”: “true”
+        "defaultValue": "true"
       },
-      “effect”: {
-        “type”: “String”,
-        “metadata”: {
-          “displayName”: “Effect”,
-          “description”: “DeployIfNotExists, AuditIfNotExists or Disabled the execution of the Policy”
+      "effect": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Effect",
+          "description": "DeployIfNotExists, AuditIfNotExists or Disabled the execution of the Policy"
         },
-        “allowedValues”: [
-          “DeployIfNotExists”,
-          “AuditIfNotExists”,
-          “Disabled”
+        "allowedValues": [
+          "DeployIfNotExists",
+          "AuditIfNotExists",
+          "Disabled"
         ],
-        “defaultValue”: “DeployIfNotExists”
+        "defaultValue": "DeployIfNotExists"
       }
     }
     PARAMETERS
 }
 
-resource “azurerm_subscription_policy_assignment” “subscriptionPolicyAssignmentActivityLogs” {
-  name                 = “subscriptionPolicyAssignmentActivityLogs”
+resource "azurerm_subscription_policy_assignment" "subscriptionPolicyAssignmentActivityLogs" {
+  name                 = "subscriptionPolicyAssignmentActivityLogs"
   policy_definition_id = azurerm_policy_definition.activityLogsEventHub.id
   subscription_id      = data.azurerm_subscription.current.id
   parameters = jsonencode({
-    “eventHubAuthorizationRuleId” = {
-      “value” = data.azurerm_eventhub_namespace_authorization_rule.SharedAccessKey.id
+    "eventHubAuthorizationRuleId" = {
+      "value" = data.azurerm_eventhub_namespace_authorization_rule.SharedAccessKey.id
     },
-    “eventHubName” = {
-      “value” = azurerm_eventhub.splunk_log_event_hub.name
+    "eventHubName" = {
+      "value" = azurerm_eventhub.splunk_log_event_hub.name
     }
   })
   location = azurerm_resource_group.splunk_logs_rg.location
   identity {
-    type = “SystemAssigned”
+    type = "SystemAssigned"
   }
 }
 
 # # Create a Virtual Network
-# resource “azurerm_virtual_network” “splunkNetwork” {
-#   name                = “splunk-vnet”
-#   address_space       = [“10.0.0.0/16”]
+# resource "azurerm_virtual_network" "splunkNetwork" {
+#   name                = "splunk-vnet"
+#   address_space       = ["10.0.0.0/16"]
 #   location            = azurerm_resource_group.splunk_logs_rg.location
 #   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
 # }
 
 # # Create a Subnet specifically for the Private Endpoint
-# resource “azurerm_subnet” “splunkSubnet” {
-#   name                 = “splunk-subnet”
+# resource "azurerm_subnet" "splunkSubnet" {
+#   name                 = "splunk-subnet"
 #   resource_group_name  = azurerm_resource_group.splunk_logs_rg.name
 #   virtual_network_name = azurerm_virtual_network.splunkNetwork.name
-#   address_prefixes     = [“10.0.0.0/24”]
-#   service_endpoints    = [“Microsoft.EventHub”]
+#   address_prefixes     = ["10.0.0.0/24"]
+#   service_endpoints    = ["Microsoft.EventHub"]
 # }
 
 # # Create a Private Endpoint for the Event Hub
-# resource “azurerm_private_endpoint” “splunkPrivateEndpoint” {
-#   name                = “example-private-endpoint”
+# resource "azurerm_private_endpoint" "splunkPrivateEndpoint" {
+#   name                = "example-private-endpoint"
 #   location            = azurerm_resource_group.splunk_logs_rg.location
 #   resource_group_name = azurerm_resource_group.splunk_logs_rg.name
 #   subnet_id           = azurerm_subnet.splunkSubnet.id
 
 #   private_service_connection {
-#     name                           = “example-private-connection”
+#     name                           = "example-private-connection"
 #     private_connection_resource_id = azurerm_eventhub_namespace.splunk_log_hub_namespace.id
 #     is_manual_connection           = false
-#     subresource_names              = [“namespace”]
+#     subresource_names              = ["namespace"]
 #   }
 # }
