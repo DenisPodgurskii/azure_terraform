@@ -79,7 +79,6 @@ resource "azurerm_subscription_policy_assignment" "subscriptionPolicyAssignment"
 # Apply custom policy - https://www.azadvertizer.net/azpolicyadvertizer/b2215d7b-25ea-411f-8b04-8c30dc61bad9.html
 #
 # TODO - use SystemAssigned identity or create and manage it
-# TODO - deployment section has location hardcoded to eastus
 #
 resource "azurerm_policy_definition" "activityLogsEventHub" {
   name         = "activityLogsEventHub"
@@ -102,21 +101,21 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
           "equals": "Microsoft.Resources/subscriptions"
         },
         "then": {
-          "effect": "[parameters(‘effect’)]",
+          "effect": "[parameters('effect')]",
           "details": {
             "type": "Microsoft.Insights/diagnosticSettings",
             "deploymentScope": "subscription",
             "existenceScope": "subscription",
-            "name": "[parameters(‘profileName’)]",
+            "name": "[parameters('profileName')]",
             "existenceCondition": {
               "allOf": [
                 {
                   "field": "Microsoft.Insights/diagnosticSettings/eventHubAuthorizationRuleId",
-                  "equals": "[parameters(‘eventHubAuthorizationRuleId’)]"
+                  "equals": "[parameters('eventHubAuthorizationRuleId')]"
                 },
                 {
                   "field": "Microsoft.Insights/diagnosticSettings/eventHubName",
-                  "equals": "[parameters(‘eventHubName’)]"
+                  "equals": "[parameters('eventHubName')]"
                 },
                 {
                   "count": {
@@ -131,7 +130,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘administrativeLogsEnabled’)]"
+                              "notEquals": "[parameters('administrativeLogsEnabled')]"
                             }
                           ]
                         },
@@ -143,7 +142,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘alertLogsEnabled’)]"
+                              "notEquals": "[parameters('alertLogsEnabled')]"
                             }
                           ]
                         },
@@ -155,7 +154,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘autoscaleLogsEnabled’)]"
+                              "notEquals": "[parameters('autoscaleLogsEnabled')]"
                             }
                           ]
                         },
@@ -167,7 +166,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘policyLogsEnabled’)]"
+                              "notEquals": "[parameters('policyLogsEnabled')]"
                             }
                           ]
                         },
@@ -179,7 +178,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘recommendationLogsEnabled’)]"
+                              "notEquals": "[parameters('recommendationLogsEnabled')]"
                             }
                           ]
                         },
@@ -191,7 +190,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘resourceHealthLogsEnabled’)]"
+                              "notEquals": "[parameters('resourceHealthLogsEnabled')]"
                             }
                           ]
                         },
@@ -203,7 +202,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘securityLogsEnabled’)]"
+                              "notEquals": "[parameters('securityLogsEnabled')]"
                             }
                           ]
                         },
@@ -215,7 +214,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                             },
                             {
                               "field": "Microsoft.Insights/diagnosticSettings/logs[*].enabled",
-                              "notEquals": "[parameters(‘serviceHealthLogsEnabled’)]"
+                              "notEquals": "[parameters('serviceHealthLogsEnabled')]"
                             }
                           ]
                         }
@@ -227,7 +226,7 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
               ]
             },
             "deployment": {
-              "location": "eastus",
+              "location": "[parameters('resourceLocation')]",
               "properties": {
                 "mode": "incremental",
                 "template": {
@@ -235,6 +234,9 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                   "contentVersion": "1.0.0.0",
                   "parameters": {
                     "profileName": {
+                      "type": "string"
+                    },
+                    "resourceLocation": {
                       "type": "string"
                     },
                     "eventHubAuthorizationRuleId": {
@@ -271,45 +273,45 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                   "variables": {},
                   "resources": [
                     {
-                      "name": "[parameters(‘profileName’)]",
+                      "name": "[parameters('profileName')]",
                       "type": "Microsoft.Insights/diagnosticSettings",
                       "apiVersion": "2017-05-01-preview",
                       "location": "Global",
                       "properties": {
-                        "eventHubAuthorizationRuleId": "[parameters(‘eventHubAuthorizationRuleId’)]",
-                        "eventHubName": "[parameters(‘eventHubName’)]",
+                        "eventHubAuthorizationRuleId": "[parameters('eventHubAuthorizationRuleId')]",
+                        "eventHubName": "[parameters('eventHubName')]",
                         "logs": [
                           {
                             "category": "Administrative",
-                            "enabled": "[parameters(‘administrativeLogsEnabled’)]"
+                            "enabled": "[parameters('administrativeLogsEnabled')]"
                           },
                           {
                             "category": "Alert",
-                            "enabled": "[parameters(‘alertLogsEnabled’)]"
+                            "enabled": "[parameters('alertLogsEnabled')]"
                           },
                           {
                             "category": "Autoscale",
-                            "enabled": "[parameters(‘autoscaleLogsEnabled’)]"
+                            "enabled": "[parameters('autoscaleLogsEnabled')]"
                           },
                           {
                             "category": "Policy",
-                            "enabled": "[parameters(‘policyLogsEnabled’)]"
+                            "enabled": "[parameters('policyLogsEnabled')]"
                           },
                           {
                             "category": "Recommendation",
-                            "enabled": "[parameters(‘recommendationLogsEnabled’)]"
+                            "enabled": "[parameters('recommendationLogsEnabled')]"
                           },
                           {
                             "category": "ResourceHealth",
-                            "enabled": "[parameters(‘resourceHealthLogsEnabled’)]"
+                            "enabled": "[parameters('resourceHealthLogsEnabled')]"
                           },
                           {
                             "category": "Security",
-                            "enabled": "[parameters(‘securityLogsEnabled’)]"
+                            "enabled": "[parameters('securityLogsEnabled')]"
                           },
                           {
                             "category": "ServiceHealth",
-                            "enabled": "[parameters(‘serviceHealthLogsEnabled’)]"
+                            "enabled": "[parameters('serviceHealthLogsEnabled')]"
                           }
                         ]
                       }
@@ -319,37 +321,40 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
                 },
                 "parameters": {
                   "profileName": {
-                    "value": "[parameters(‘profileName’)]"
+                    "value": "[parameters('profileName')]"
+                  },
+                  "resourceLocation": {
+                    "value": "[parameters('resourceLocation')]"
                   },
                   "eventHubName": {
-                    "value": "[parameters(‘eventHubName’)]"
+                    "value": "[parameters('eventHubName')]"
                   },
                   "eventHubAuthorizationRuleId": {
-                    "value": "[parameters(‘eventHubAuthorizationRuleId’)]"
+                    "value": "[parameters('eventHubAuthorizationRuleId')]"
                   },
                   "administrativeLogsEnabled": {
-                    "value": "[parameters(‘administrativeLogsEnabled’)]"
+                    "value": "[parameters('administrativeLogsEnabled')]"
                   },
                   "alertLogsEnabled": {
-                    "value": "[parameters(‘alertLogsEnabled’)]"
+                    "value": "[parameters('alertLogsEnabled')]"
                   },
                   "autoscaleLogsEnabled": {
-                    "value": "[parameters(‘autoscaleLogsEnabled’)]"
+                    "value": "[parameters('autoscaleLogsEnabled')]"
                   },
                   "policyLogsEnabled": {
-                    "value": "[parameters(‘policyLogsEnabled’)]"
+                    "value": "[parameters('policyLogsEnabled')]"
                   },
                   "recommendationLogsEnabled": {
-                    "value": "[parameters(‘recommendationLogsEnabled’)]"
+                    "value": "[parameters('recommendationLogsEnabled')]"
                   },
                   "resourceHealthLogsEnabled": {
-                    "value": "[parameters(‘resourceHealthLogsEnabled’)]"
+                    "value": "[parameters('resourceHealthLogsEnabled')]"
                   },
                   "securityLogsEnabled": {
-                    "value": "[parameters(‘securityLogsEnabled’)]"
+                    "value": "[parameters('securityLogsEnabled')]"
                   },
                   "serviceHealthLogsEnabled": {
-                    "value": "[parameters(‘serviceHealthLogsEnabled’)]"
+                    "value": "[parameters('serviceHealthLogsEnabled')]"
                   }
                 }
               }
@@ -367,13 +372,21 @@ resource "azurerm_policy_definition" "activityLogsEventHub" {
   parameters = <<PARAMETERS
     {
       "profileName": {
-            "type": "String",
-            "metadata": {
-              "displayName": "Profile name",
-              "description": "The diagnostic settings profile name"
-            },
-            "defaultValue": "exportToEventHub"
+          "type": "String",
+          "metadata": {
+            "displayName": "Profile name",
+            "description": "The diagnostic settings profile name"
           },
+          "defaultValue": "exportToEventHub"
+        },
+      "resourceLocation": {
+        "type": "String",
+        "metadata": {
+          "displayName": "Resource Location",
+          "description": "Resource Location must be in the same location as the Event Hub Namespace.",
+          "strongType": "location"
+        }
+      },
       "eventHubAuthorizationRuleId": {
         "type": "String",
         "metadata": {
@@ -508,6 +521,9 @@ resource "azurerm_subscription_policy_assignment" "subscriptionPolicyAssignmentA
   policy_definition_id = azurerm_policy_definition.activityLogsEventHub.id
   subscription_id      = data.azurerm_subscription.current.id
   parameters = jsonencode({
+    "resourceLocation" = {
+      "value" = azurerm_resource_group.splunk_logs_rg.location
+    },
     "eventHubAuthorizationRuleId" = {
       "value" = data.azurerm_eventhub_namespace_authorization_rule.SharedAccessKey.id
     },
@@ -552,3 +568,4 @@ resource "azurerm_subscription_policy_assignment" "subscriptionPolicyAssignmentA
 #     subresource_names              = ["namespace"]
 #   }
 # }
+
